@@ -8,7 +8,7 @@ public class MediaController : ControllerBase
 {
     private readonly ILogger<MediaController> _logger;
 
-    public MediaController(ILogger<MediaController> logger)
+    public MediaController(ILogger<MediaController> logger/*, IDbService _db*/)
     {
         _logger = logger;
     }
