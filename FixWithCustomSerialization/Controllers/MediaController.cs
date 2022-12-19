@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FixWithCustomSerialization.Models;
+using FixWithCustomSerialization.Services;
+using Microsoft.AspNetCore.Mvc;
+using System.Xml.Linq;
 
 namespace FixWithCustomSerialization.Controllers;
 
@@ -6,63 +9,71 @@ namespace FixWithCustomSerialization.Controllers;
 [Route("[controller]")]
 public class MediaController : ControllerBase
 {
+    private readonly IDbService _db;
     private readonly ILogger<MediaController> _logger;
 
-    public MediaController(ILogger<MediaController> logger/*, IDbService _db*/)
+    public MediaController(ILogger<MediaController> logger, IDbService db)
     {
         _logger = logger;
+        _db = db;
+    }
+
+    [HttpGet]
+    public async Task<List<MediaFile>> GetMedia() =>
+        await _db.GetAsync();
+
+    [HttpGet("{id:length(24)}")]
+    public async Task<ActionResult<MediaFile>> GetMedia(string id)
+    {
+        var media = await _db.GetAsync(id);
+
+        if (media is null)
+        {
+            return NotFound();
+        }
+
+        return media;
     }
 
     [HttpPost]
-    public MediaFile UpdateMedia([FromBody] MediaFile media)
+    public async Task<IActionResult> Post(MediaFile newMedia)
     {
-        throw new NotImplementedException();
+        await _db.CreateAsync(newMedia);
 
-        /* todo: Implement the method
-         * 
-         * 1. media will be contained in the ImageDataB64 prop. It should have been already saved to the webroots folder by the "read" method of MediaFileJsonConverter
-         * 2. Save the media object in Mongo db
-         * 3. return the MediaFile object
-         * 4. We expect the "write" method of MediaFileJsonConverter to create the public URL
-         * 
-         * */
+        return CreatedAtAction(nameof(GetMedia), new { id = newMedia.Name }, newMedia);
     }
 
-    [HttpGet("{Name}")]
-    public MediaFile GetMedia(string Name)
+    [HttpPut("{id:length(24)}")]
+    public async Task<IActionResult> UpdateMedia(string name, MediaFile updatedMedia)
     {
-        throw new NotImplementedException();
+        var media = await _db.GetAsync(name);
 
-        /*
-         * return _mongoDb.getcollection<MediaFile>.Find(m=>m.Name==Name).SingleAsync();
-         * 
-         * 1. We expect the "write" method of MediaFileJsonConverter to create the public URL
-         * 
-         */
+        if (media is null)
+        {
+            return NotFound();
+        }
+
+        updatedMedia.Name = media.Name;
+
+        await _db.UpdateAsync(name, updatedMedia);
+
+        return NoContent();
     }
-}
 
-/// <summary>
-/// todo: implement MediaFileJsonConverter  
-/// [JsonConverter(typeof(MediaFileJsonConverter))]
-/// </summary>
-public class MediaFile
-{
-    /// <summary>
-    /// todo: We want media name to be Unique, Please enforce using MongoDb Unique Index
-    /// </summary>
-    public string Name { get; set; } = "";
+    [HttpDelete("{id:length(24)}")]
+    public async Task<IActionResult> Delete(string name)
+    {
+        var media = await _db.GetAsync(name);
 
-    /// <summary>
-    /// todo: donot Save in database
-    /// </summary>
-    public string ImageDataB64 { get; set; } = "";
+        if (media is null)
+        {
+            return NotFound();
+        }
 
-    /// <summary>
-    /// todo: donot Save in database, Generate dynamically using 
-    /// </summary>
-    public string PublicUrl { get; set; } = "";
+        await _db.RemoveAsync(name);
 
+        return NoContent();
+    }
 
 }
 
